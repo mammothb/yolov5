@@ -1,0 +1,6 @@
+folium==0.2.1
+imgaug==0.2.6
+jupyter-client==6.1.5
+oidv6==1.0.5
+urllib3==1.25.4
+

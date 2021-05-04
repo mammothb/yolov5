@@ -8,7 +8,19 @@ dataset_name = "oidv6"
 original_data_dir = Path.cwd().parent / dataset_name
 converted_data_dir = original_data_dir.parent / f"{dataset_name}_converted"
 
-classes = [path.name for path in (original_data_dir / "train").iterdir()]
+classes = [
+    "apple",
+    "banana",
+    "box",
+    "cart",
+    "gas_stove",
+    "kitchen_&_dining_room_table",
+    "orange",
+    "table",
+    "wheelchair",
+    "wok",
+    "wood-burning_stove",
+]
 
 for subset in ["train", "validation", "test"]:
     image_dir = converted_data_dir / "images" / subset
