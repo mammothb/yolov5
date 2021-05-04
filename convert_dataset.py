@@ -22,26 +22,29 @@ classes = [
     "wood-burning_stove",
 ]
 
-for subset in ["train", "validation", "test"]:
+for subset in ["train", "test"]:
+    print(subset)
+
     image_dir = converted_data_dir / "images" / subset
     label_dir = converted_data_dir / "labels" / subset
     image_dir.mkdir(parents=True, exist_ok=True)
     label_dir.mkdir(parents=True, exist_ok=True)
-    for i, class_name in enumerate(classes):
-        print(i, class_name)
-        src_class_dir = original_data_dir / subset / class_name
-        for filename in src_class_dir.glob("*.jpg"):
-            shutil.copy(filename, image_dir / filename.name)
-            label_filename = f"{filename.stem}.txt"
-            curr_image = cv2.imread(str(filename))
-            with open(src_class_dir / "labels" / label_filename, "r") as infile, open(
-                label_dir / label_filename, "w"
-            ) as outfile:
-                for line in infile.readlines():
-                    x_min, y_min, x_max, y_max = map(float, line.split(" ")[1:])
-                    outfile.write(
-                        f"{i} {x_min / curr_image.shape[1]} "
-                        f"{y_min / curr_image.shape[0]} "
-                        f"{(x_max - x_min) / curr_image.shape[1]} "
-                        f"{(y_max - y_min) / curr_image.shape[0]}\n"
-                    )
+
+    src_class_dir = (original_data_dir / "multidata" / subset)
+    for filename in src_class_dir.glob("*.jpg"):
+        shutil.copy(filename, image_dir / filename.name)
+        label_filename = f"{filename.stem}.txt"
+        curr_image = cv2.imread(str(filename))
+        with open(src_class_dir / "labels" / label_filename, "r") as infile, open(
+            label_dir / label_filename, "w"
+        ) as outfile:
+            for line in infile.readlines():
+                line_parts = line.rstrip().split(" ")
+                x_min, y_min, x_max, y_max = map(float, line_parts[1:])
+                outfile.write(
+                    f"{classes.index(line_parts[0])} "
+                    f"{(x_min + x_max) / 2 / curr_image.shape[1]} "
+                    f"{(y_min + y_max) / 2 / curr_image.shape[0]} "
+                    f"{(x_max - x_min) / curr_image.shape[1]} "
+                    f"{(y_max - y_min) / curr_image.shape[0]}\n"
+                )

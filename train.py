@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import random
+import shutil
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -410,6 +411,8 @@ def train(hyp, opt, device, tb_writer=None):
 
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
+    shutil.copy(last, os.path.join(wandb_logger.wandb.run.dir, last.name))
+    shutil.copy(best, os.path.join(wandb_logger.wandb.run.dir, best.name))
     if rank in [-1, 0]:
         # Plots
         if plots:
