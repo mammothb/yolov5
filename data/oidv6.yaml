@@ -7,7 +7,7 @@
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
 train: ../oidv6_converted/images/train/  # 128 images
-val: ../oidv6_converted/images/train/  # 128 images
+val: ../oidv6_converted/images/test/  # 128 images
 
 # number of classes
 nc: 11
