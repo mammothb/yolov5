@@ -10,9 +10,8 @@ train: ../oidv6_converted/images/train/  # 128 images
 val: ../oidv6_converted/images/test/  # 128 images
 
 # number of classes
-nc: 11
+nc: 10
 
 # class names
 names: [ 'apple', 'banana', 'box', 'cart', 'gas_stove',
-         'kitchen_&_dining_room_table', 'orange', 'table', 'wheelchair',
-         'wok', 'wood-burning_stove' ]
+         'orange', 'table', 'wheelchair', 'wok', 'wood-burning_stove' ]
