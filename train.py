@@ -240,6 +240,7 @@ def train(hyp, opt, device, tb_writer=None):
     # nw = min(nw, (epochs - start_epoch) / 2 * nb)  # limit warmup to < 1/2 of training
     maps = np.zeros(nc)  # mAP per class
     results = (0, 0, 0, 0, 0, 0, 0)  # P, R, mAP@.5, mAP@.5-.95, val_loss(box, obj, cls)
+    best_results = results
     scheduler.last_epoch = start_epoch - 1  # do not move
     scaler = amp.GradScaler(enabled=cuda)
     compute_loss = ComputeLoss(model)  # init loss class
@@ -386,6 +387,7 @@ def train(hyp, opt, device, tb_writer=None):
             fi = fitness(np.array(results).reshape(1, -1))  # weighted combination of [P, R, mAP@.5, mAP@.5-.95]
             if fi > best_fitness:
                 best_fitness = fi
+                best_results = results
             wandb_logger.end_epoch(best_result=best_fitness == fi)
 
             # Save model
@@ -411,6 +413,11 @@ def train(hyp, opt, device, tb_writer=None):
 
         # end epoch ----------------------------------------------------------------------------------------------------
     # end training
+    best_tags = ['best_metrics/precision', 'best_metrics/recall', 'best_metrics/mAP_0.5', 'best_metrics/mAP_0.5:0.95',
+                 'best_val/box_loss', 'best_val/obj_loss', 'best_val/cls_loss']
+    for x, tag in zip(list(best_results), best_tags):
+        if wandb_logger.wandb:
+            wandb_logger.log({tag: x})  # W&B
     shutil.copy(last, os.path.join(wandb_logger.wandb.run.dir, last.name))
     shutil.copy(best, os.path.join(wandb_logger.wandb.run.dir, best.name))
     if rank in [-1, 0]:
