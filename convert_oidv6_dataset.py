@@ -27,7 +27,9 @@ def convert(args):
     #     "wok",
     #     "wood-burning_stove",
     # ]
-    classes = ["apple", "banana", "orange", "wheelchair", "wok"]
+    # classes = ["apple", "banana", "orange", "wheelchair", "wok"]
+    # classes = ["box"]
+    classes = ["table"]
 
     for subset in ["train", "test"]:
         print(subset)
