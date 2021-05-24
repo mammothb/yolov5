@@ -6,11 +6,11 @@
 #     /yolov5
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
-train: ../oidv6_data_similar_converted/images/train/  # 128 images
-val: ../oidv6_data_similar_converted/images/test/  # 128 images
+train: ../oidv6_data_converted_11classes/images/train/  # 128 images
+val: ../oidv6_data_converted_11classes/images/test/  # 128 images
 
 # number of classes
-nc: 5
+nc: 11
 
 # class names
-names: [ 'apple', 'banana', 'orange', 'wheelchair', 'wok' ]
+names: [ 'apple', 'banana', 'orange', 'wheelchair', 'wok', 'box', 'table', 'tissue', 'gas_cylinder', 'burner', 'cart' ]
