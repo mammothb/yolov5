@@ -403,6 +403,7 @@ def train(hyp, opt, device, tb_writer=None):
 
                 # Save last, best and delete
                 torch.save(ckpt, last)
+                shutil.copy(last, os.path.join(wandb_logger.wandb.run.dir, last.name))
                 if best_fitness == fi:
                     torch.save(ckpt, best)
                 if wandb_logger.wandb:
