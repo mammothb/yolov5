@@ -18,6 +18,7 @@ from utils.plots import plot_images, output_to_target, plot_study_txt
 from utils.torch_utils import select_device, time_synchronized
 
 
+@torch.no_grad()
 def test(data,
          weights=None,
          batch_size=32,
@@ -105,22 +106,21 @@ def test(data,
         targets = targets.to(device)
         nb, _, height, width = img.shape  # batch size, channels, height, width
 
-        with torch.no_grad():
-            # Run model
-            t = time_synchronized()
-            out, train_out = model(img, augment=augment)  # inference and training outputs
-            t0 += time_synchronized() - t
+        # Run model
+        t = time_synchronized()
+        out, train_out = model(img, augment=augment)  # inference and training outputs
+        t0 += time_synchronized() - t
 
-            # Compute loss
-            if compute_loss:
-                loss += compute_loss([x.float() for x in train_out], targets)[1][:3]  # box, obj, cls
+        # Compute loss
+        if compute_loss:
+            loss += compute_loss([x.float() for x in train_out], targets)[1][:3]  # box, obj, cls
 
-            # Run NMS
-            targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
-            lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
-            t = time_synchronized()
-            out = non_max_suppression(out, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls)
-            t1 += time_synchronized() - t
+        # Run NMS
+        targets[:, 2:] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
+        lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
+        t = time_synchronized()
+        out = non_max_suppression(out, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls)
+        t1 += time_synchronized() - t
 
         # Statistics per image
         for si, pred in enumerate(out):
@@ -188,8 +188,8 @@ def test(data,
 
                 # Per target class
                 for cls in torch.unique(tcls_tensor):
-                    ti = (cls == tcls_tensor).nonzero(as_tuple=False).view(-1)  # prediction indices
-                    pi = (cls == pred[:, 5]).nonzero(as_tuple=False).view(-1)  # target indices
+                    ti = (cls == tcls_tensor).nonzero(as_tuple=False).view(-1)  # target indices
+                    pi = (cls == pred[:, 5]).nonzero(as_tuple=False).view(-1)  # prediction indices
 
                     # Search for detections
                     if pi.shape[0]:
