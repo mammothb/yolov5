@@ -69,7 +69,7 @@ def train(hyp, opt, device, tb_writer=None):
     loggers = {'wandb': None}  # loggers dict
     if rank in [-1, 0]:
         opt.hyp = hyp  # add hyperparameters
-        run_id = torch.load(weights).get('wandb_id') if weights.endswith('.pt') and os.path.isfile(weights) else None
+        run_id = torch.load(weights).get('wandb_id') if weights.endswith('.pt') and os.path.isfile(weights) and not opt.resume else None
         wandb_logger = WandbLogger(opt, save_dir.stem, run_id, data_dict)
         loggers['wandb'] = wandb_logger.wandb
         data_dict = wandb_logger.data_dict
@@ -249,6 +249,8 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+        if opt.split_epoch and epoch == opt.split_epoch:
+            break
         model.train()
 
         # Update image weights (optional)
@@ -417,7 +419,7 @@ def train(hyp, opt, device, tb_writer=None):
         if wandb_logger.wandb:
             wandb_logger.log({tag: x})  # W&B
     shutil.copy(last, os.path.join(wandb_logger.wandb.run.dir, last.name))
-    shutil.copy(best, os.path.join(wandb_logger.wandb.run.dir, best.name))
+    shutil.copy(last.parent.parent / 'opt.yaml', os.path.join(wandb_logger.wandb.run.dir, 'opt.yaml'))
     if rank in [-1, 0]:
         # Plots
         if plots:
@@ -468,6 +470,7 @@ if __name__ == '__main__':
     parser.add_argument('--data', type=str, default='data/coco128.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
     parser.add_argument('--epochs', type=int, default=300)
+    parser.add_argument('--split_epoch', type=int, default=None)
     parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
     parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
     parser.add_argument('--rect', action='store_true', help='rectangular training')
@@ -512,10 +515,10 @@ if __name__ == '__main__':
     if opt.resume and not wandb_run:  # resume an interrupted run
         ckpt = opt.resume if isinstance(opt.resume, str) else get_latest_run()  # specified or most recent path
         assert os.path.isfile(ckpt), 'ERROR: --resume checkpoint does not exist'
-        apriori = opt.global_rank, opt.local_rank
+        apriori = opt.global_rank, opt.local_rank, opt.split_epoch
         with open(Path(ckpt).parent.parent / 'opt.yaml') as f:
             opt = argparse.Namespace(**yaml.safe_load(f))  # replace
-        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = \
+        opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank, opt.split_epoch = \
             '', ckpt, True, opt.total_batch_size, *apriori  # reinstate
         logger.info('Resuming training from %s' % ckpt)
     else:
