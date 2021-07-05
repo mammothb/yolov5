@@ -1,8 +1,10 @@
 import argparse
 import time
+from math import dist
 from pathlib import Path
 
 import cv2
+import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
@@ -12,6 +14,124 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
     scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
+
+
+def parse_event(unique_classes, fruit_indices, name_indices):
+    # Print results
+    event_pred = None
+    if (
+        fruit_indices.intersection(unique_classes)
+        and name_indices["table"] in unique_classes
+    ):
+        event_pred = "fruit"
+    elif (
+        name_indices["cart"] in unique_classes
+        or name_indices["wok"] in unique_classes
+    ) and (
+        name_indices["gas_cylinder"] in unique_classes
+        or name_indices["burner"] in unique_classes
+    ) or (
+        name_indices["cart"] in unique_classes
+        and name_indices["wok"] in unique_classes
+    ):
+        event_pred = "chestnut"
+    elif (
+        name_indices["wheelchair"] in unique_classes
+        and name_indices["tissue"] in unique_classes
+    ):
+        event_pred = "tissue"
+    return event_pred
+
+
+def filter_conf_thres(det, name_indices):
+    custom_conf_thres = {
+        "box": 1.0,
+        "burner": 0.3,
+        "gas_cylinder": 0.41,
+        "tissue": 0.3,
+        "wheelchair": 0.3,
+        "wok": 0.33,
+    }
+    for cls in custom_conf_thres:
+        det = det[
+            (det[..., 5] != name_indices[cls])
+            | (
+                (det[..., 5] == name_indices[cls])
+                & (det[..., 4] > custom_conf_thres[cls])
+            )
+        ]
+    return det
+
+def filter_location(det, name_indices, img_size):
+    lower_y_thres = {
+        "table": 0.75,
+        "wok": 0.5,
+    }
+    for cls in lower_y_thres:
+        det = det[
+            (det[..., 5] != name_indices[cls])
+            | (
+                (det[..., 5] == name_indices[cls])
+                & (det[..., 3] > lower_y_thres[cls] * img_size[0])
+            )
+        ]
+    return det
+
+
+def box_distance(box1, box2):
+    """Calculations done w.r.t. box1. Coords are (top left), (bottom right)
+    """
+    left = box2[2] < box1[0]
+    right = box1[2] < box2[0]
+    bottom = box2[1] > box1[3]
+    top = box1[1] > box2[3]
+    if top and left:
+        return dist((box1[0], box1[1]), (box2[2], box2[3]))
+    elif left and bottom:
+        return dist((box1[0], box1[3]), (box2[2], box2[1]))
+    elif bottom and right:
+        return dist((box1[2], box1[3]), (box2[0], box2[1]))
+    elif right and top:
+        return dist((box1[2], box1[1]), (box2[0], box2[3]))
+    elif left:
+        return box1[0] - box2[2]
+    elif right:
+        return box2[0] - box1[2]
+    elif bottom:
+        return box1[3] - box2[1]
+    elif top:
+        return box2[3] - box1[1]
+    else:
+        # rectangles intersect
+        return 0.0
+
+
+def filter_distance(det, name_indices):
+    cond = [True] * len(det)
+    distance_thres = {
+        "cart": {
+            "gas_cylinder": 1.0,
+            "burner": 0.0,
+        }
+    }
+    # Loop through reference classes
+    for ref_cls in distance_thres:
+        ref_dets = det[det[..., 5] == name_indices[ref_cls]]
+        # Loop through all detections
+        for i, (*det_xyxy, _, det_cls) in enumerate(det):
+            # Loop through each class related to the reference class
+            for cls in distance_thres[ref_cls]:
+                if det_cls == name_indices[cls]:
+                    coeff = distance_thres[ref_cls][cls]
+                    in_proximity = False
+                    # Loop through each reference object
+                    for *ref_xyxy, _, _ in ref_dets:
+                        if box_distance(ref_xyxy, det_xyxy) <= (det_xyxy[2] - det_xyxy[0]) * coeff:
+                            in_proximity = True
+                            break
+                    cond[i] = in_proximity
+    det = det[cond]
+    return det
 
 
 @torch.no_grad()
@@ -37,6 +157,31 @@ def detect(opt):
     names = model.module.names if hasattr(model, 'module') else model.names  # get class names
     if half:
         model.half()  # to FP16
+
+    # initialize_class_indices
+    name_indices = {name: i for i, name in enumerate(names)}
+    fruit_indices = set(
+        [name_indices["apple"], name_indices["banana"], name_indices["orange"]]
+    )
+    event_indices = {
+        "fruit": [
+            name_indices["apple"],
+            name_indices["banana"],
+            name_indices["orange"],
+            name_indices["box"],
+            name_indices["table"],
+        ],
+        "chestnut": [
+            name_indices["wok"],
+            name_indices["gas_cylinder"],
+            name_indices["burner"],
+            name_indices["cart"],
+        ],
+        "tissue": [name_indices["wheelchair"], name_indices["tissue"]],
+    }
+    event_color_indices = {
+        event: i for i, event in enumerate(["fruit", "chestnut", "tissue"])
+    }
 
     # Second-stage classifier
     classify = False
@@ -91,16 +236,27 @@ def detect(opt):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if opt.save_crop else im0  # for opt.save_crop
             if len(det):
+                det = filter_conf_thres(det, name_indices)
+                img_size = img.shape[2:]
+                det = filter_location(det, name_indices, img_size)
+                det = filter_distance(det, name_indices)
                 # Rescale boxes from img_size to im0 size
-                det[:, :4] = scale_coords(img.shape[2:], det[:, :4], im0.shape).round()
+                det[:, :4] = scale_coords(img_size, det[:, :4], im0.shape).round()
+                
+                # Parse event
+                unique_classes = set([int(cls.item()) for cls in det[:, -1].unique()])
+                event_pred = parse_event(unique_classes, fruit_indices, name_indices)
 
                 # Print results
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += f"{n} {names[int(c)]}{'s' * (n > 1)}, "  # add to string
 
+                coords = []
                 # Write results
                 for *xyxy, conf, cls in reversed(det):
+                    if event_pred and cls in event_indices[event_pred]:
+                        coords.append(torch.tensor(xyxy).view(1, 4).view(-1).tolist())
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         line = (cls, *xywh, conf) if opt.save_conf else (cls, *xywh)  # label format
@@ -113,6 +269,20 @@ def detect(opt):
                         plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness)
                         if opt.save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
+
+                if event_pred:
+                    coords = np.asarray(coords)
+                    min_xy = np.amin(coords[:, :2], axis=0)
+                    max_xy = np.amax(coords[:, 2:], axis=0)
+                    event_xyxy = (min_xy[0], min_xy[1], max_xy[0], max_xy[1])
+                    event_label = f"{event_pred} hawker"
+                    plot_one_box(
+                        event_xyxy,
+                        im0,
+                        label=event_label,
+                        color=colors(event_color_indices[event_pred], True),
+                        line_thickness=opt.line_thickness,
+                    )
 
             # Print time (inference + NMS)
             print(f'{s}Done. ({t2 - t1:.3f}s)')
