@@ -43,41 +43,6 @@ def parse_event(unique_classes, fruit_indices, name_indices):
     return event_pred
 
 
-def filter_conf_thres(det, name_indices):
-    custom_conf_thres = {
-        "box": 1.0,
-        "burner": 0.3,
-        "gas_cylinder": 0.41,
-        "tissue": 0.3,
-        "wheelchair": 0.3,
-        "wok": 0.33,
-    }
-    for cls in custom_conf_thres:
-        det = det[
-            (det[..., 5] != name_indices[cls])
-            | (
-                (det[..., 5] == name_indices[cls])
-                & (det[..., 4] > custom_conf_thres[cls])
-            )
-        ]
-    return det
-
-def filter_location(det, name_indices, img_size):
-    lower_y_thres = {
-        "table": 0.75,
-        "wok": 0.5,
-    }
-    for cls in lower_y_thres:
-        det = det[
-            (det[..., 5] != name_indices[cls])
-            | (
-                (det[..., 5] == name_indices[cls])
-                & (det[..., 3] > lower_y_thres[cls] * img_size[0])
-            )
-        ]
-    return det
-
-
 def box_distance(box1, box2):
     """Calculations done w.r.t. box1. Coords are (top left), (bottom right)
     """
@@ -106,19 +71,48 @@ def box_distance(box1, box2):
         return 0.0
 
 
+def filter_conf_thres(det, name_indices):
+    conf_thres = {
+        "box": 1.0,
+        "burner": 0.3,
+        "gas_cylinder": 0.41,
+        "tissue": 0.3,
+        "wheelchair": 0.3,
+        "wok": 0.33,
+    }
+    for cls, thres in conf_thres.items():
+        det = det[
+            (det[..., 5] != name_indices[cls])
+            | (
+                (det[..., 5] == name_indices[cls])
+                & (det[..., 4] > thres)
+            )
+        ]
+    return det
+
+
 def filter_distance(det, name_indices):
     cond = [True] * len(det)
     distance_thres = {
         "cart": {
             "gas_cylinder": 1.0,
             "burner": 0.0,
-        }
+        },
+        "table": {
+            "apple": 1.0,
+            "banana": 1.0,
+            "orange": 1.0,
+        },
+        "wheelchair": {
+            "tissue": 2.0
+        },
     }
     # Loop through reference classes
     for ref_cls in distance_thres:
         ref_dets = det[det[..., 5] == name_indices[ref_cls]]
         # Loop through all detections
         for i, (*det_xyxy, _, det_cls) in enumerate(det):
+            det_width = det_xyxy[2] - det_xyxy[0]
             # Loop through each class related to the reference class
             for cls in distance_thres[ref_cls]:
                 if det_cls == name_indices[cls]:
@@ -126,11 +120,46 @@ def filter_distance(det, name_indices):
                     in_proximity = False
                     # Loop through each reference object
                     for *ref_xyxy, _, _ in ref_dets:
-                        if box_distance(ref_xyxy, det_xyxy) <= (det_xyxy[2] - det_xyxy[0]) * coeff:
+                        if box_distance(ref_xyxy, det_xyxy) <= coeff * det_width:
                             in_proximity = True
                             break
-                    cond[i] = in_proximity
+                    cond[i] = in_proximity or not len(ref_dets)
     det = det[cond]
+    return det
+
+
+def filter_location(det, name_indices, img_size):
+    lower_y_thres = {
+        "table": 0.75,
+        "wheelchair": 0.5,
+        "wok": 0.5,
+    }
+    for cls, thres in lower_y_thres.items():
+        det = det[
+            (det[..., 5] != name_indices[cls])
+            | (
+                (det[..., 5] == name_indices[cls])
+                & (det[..., 3] > thres * img_size[0])
+            )
+        ]
+    return det
+
+
+def filter_size(det, name_indices, img_size):
+    height_thres = {
+        "apple": 0.2,
+        "banana": 0.2,
+        "table": 0.5,
+        "orange": 0.2,
+    }
+    for cls, thres in height_thres.items():
+        det = det[
+            (det[..., 5] != name_indices[cls])
+            | (
+                (det[..., 5] == name_indices[cls])
+                & (det[..., 3] - det[..., 1] <= thres * img_size[0])
+            )
+        ]
     return det
 
 
@@ -222,6 +251,7 @@ def detect(opt):
         if classify:
             pred = apply_classifier(pred, modelc, img, im0s)
 
+        event_path = save_dir / "event.txt"
         # Process detections
         for i, det in enumerate(pred):  # detections per image
             if webcam:  # batch_size >= 1
@@ -239,6 +269,7 @@ def detect(opt):
                 det = filter_conf_thres(det, name_indices)
                 img_size = img.shape[2:]
                 det = filter_location(det, name_indices, img_size)
+                det = filter_size(det, name_indices, img_size)
                 det = filter_distance(det, name_indices)
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img_size, det[:, :4], im0.shape).round()
@@ -271,6 +302,8 @@ def detect(opt):
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
                 if event_pred:
+                    with open(event_path, "a") as f:
+                        f.write(f"{p.name} {event_pred}\n")
                     coords = np.asarray(coords)
                     min_xy = np.amin(coords[:, :2], axis=0)
                     max_xy = np.amax(coords[:, 2:], axis=0)
