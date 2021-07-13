@@ -189,9 +189,9 @@ def detect(opt):
 
     # initialize_class_indices
     name_indices = {name: i for i, name in enumerate(names)}
-    fruit_indices = set(
-        [name_indices["apple"], name_indices["banana"], name_indices["orange"]]
-    )
+    fruit_color = len(name_indices)
+    fruit_names = ["apple", "banana", "orange"]
+    fruit_indices = set([name_indices[name] for name in fruit_names])
     event_indices = {
         "fruit": [
             name_indices["apple"],
@@ -297,7 +297,11 @@ def detect(opt):
                     if save_img or opt.save_crop or view_img:  # Add bbox to image
                         c = int(cls)  # integer class
                         label = None if opt.hide_labels else (names[c] if opt.hide_conf else f'{names[c]} {conf:.2f}')
-                        plot_one_box(xyxy, im0, label=label, color=colors(c, True), line_thickness=opt.line_thickness)
+                        color = colors(c, True)
+                        if any(name in label for name in fruit_names):
+                            label = f"fruit {label.split(' ')[-1]}"
+                            color = colors(fruit_color, True)
+                        plot_one_box(xyxy, im0, label=label, color=color, line_thickness=opt.line_thickness)
                         if opt.save_crop:
                             save_one_box(xyxy, imc, file=save_dir / 'crops' / names[c] / f'{p.stem}.jpg', BGR=True)
 
