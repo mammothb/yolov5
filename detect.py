@@ -1,6 +1,11 @@
 import argparse
 import time
-from math import dist
+try:
+    from math import dist
+except ImportError:
+    import math
+    def dist(p, q):
+        return math.sqrt(sum((px - qx)**2.0 for px, qx in zip(p, q)))
 from pathlib import Path
 
 import cv2
