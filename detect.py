@@ -266,8 +266,8 @@ def detect(opt):
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             imc = im0.copy() if opt.save_crop else im0  # for opt.save_crop
             if len(det):
-                det = filter_conf_thres(det, name_indices)
                 img_size = img.shape[2:]
+                det = filter_conf_thres(det, name_indices)
                 det = filter_location(det, name_indices, img_size)
                 det = filter_size(det, name_indices, img_size)
                 det = filter_distance(det, name_indices)
