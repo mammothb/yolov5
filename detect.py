@@ -68,9 +68,9 @@ def box_distance(box1, box2):
     elif right:
         return box2[0] - box1[2]
     elif bottom:
-        return box1[3] - box2[1]
+        return box2[1] - box1[3]
     elif top:
-        return box2[3] - box1[1]
+        return box1[1] - box2[3]
     else:
         # rectangles intersect
         return 0.0
@@ -80,10 +80,11 @@ def filter_conf_thres(det, name_indices):
     conf_thres = {
         "box": 1.0,
         "burner": 0.3,
-        "gas_cylinder": 0.41,
+        "gas_cylinder": 0.63,
+        "orange": 0.27,
         "tissue": 0.3,
         "wheelchair": 0.3,
-        "wok": 0.33,
+        "wok": 0.35,
     }
     for cls, thres in conf_thres.items():
         det = det[
@@ -99,18 +100,18 @@ def filter_conf_thres(det, name_indices):
 def filter_distance(det, name_indices):
     cond = [True] * len(det)
     distance_thres = {
-        "cart": {
-            "gas_cylinder": 1.0,
-            "burner": 0.0,
-        },
+        # "cart": {
+        #     "gas_cylinder": 1.0,
+        #     "burner": 0.0,
+        # },
         "table": {
             "apple": 1.0,
             "banana": 1.0,
             "orange": 1.0,
         },
-        "wheelchair": {
-            "tissue": 2.0
-        },
+        # "wheelchair": {
+        #     "tissue": 2.0
+        # },
     }
     # Loop through reference classes
     for ref_cls in distance_thres:
