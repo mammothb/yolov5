@@ -80,6 +80,7 @@ def filter_conf_thres(det, name_indices):
     conf_thres = {
         "box": 1.0,
         "burner": 0.3,
+        "cart": 0.26,
         "gas_cylinder": 0.63,
         "orange": 0.27,
         "tissue": 0.3,
@@ -118,7 +119,8 @@ def filter_distance(det, name_indices):
         ref_dets = det[det[..., 5] == name_indices[ref_cls]]
         # Loop through all detections
         for i, (*det_xyxy, _, det_cls) in enumerate(det):
-            det_width = det_xyxy[2] - det_xyxy[0]
+            det_w = det_xyxy[2] - det_xyxy[0]
+            det_h = det_xyxy[3] - det_xyxy[1]
             # Loop through each class related to the reference class
             for cls in distance_thres[ref_cls]:
                 if det_cls == name_indices[cls]:
@@ -126,7 +128,10 @@ def filter_distance(det, name_indices):
                     in_proximity = False
                     # Loop through each reference object
                     for *ref_xyxy, _, _ in ref_dets:
-                        if box_distance(ref_xyxy, det_xyxy) <= coeff * det_width:
+                        if (
+                            box_distance(ref_xyxy, det_xyxy) <= coeff * det_w
+                            and box_distance(ref_xyxy, det_xyxy) <= coeff * det_h
+                        ):
                             in_proximity = True
                             break
                     cond[i] = in_proximity or not len(ref_dets)
@@ -148,6 +153,44 @@ def filter_location(det, name_indices, img_size):
                 & (det[..., 3] > thres * img_size[0])
             )
         ]
+    return det
+
+
+def filter_rel_size(det, name_indices):
+    cond = [True] * len(det)
+    size_thres = {
+        # "cart": {
+        #     "gas_cylinder": 1.0,
+        #     "burner": 0.0,
+        # },
+        # "table": {
+        #     "apple": 1.0,
+        #     "banana": 1.0,
+        #     "orange": 1.0,
+        # },
+        "wheelchair": {
+            "tissue": 0.5
+        },
+    }
+    # Loop through reference classes
+    for ref_cls in size_thres:
+        ref_dets = det[det[..., 5] == name_indices[ref_cls]]
+        # Loop through all detections
+        for i, (*det_xyxy, _, det_cls) in enumerate(det):
+            det_size = (det_xyxy[2] - det_xyxy[0]) * (det_xyxy[3] - det_xyxy[1])
+            # Loop through each class related to the reference class
+            for cls in size_thres[ref_cls]:
+                if det_cls == name_indices[cls]:
+                    coeff = size_thres[ref_cls][cls]
+                    apt_size = False
+                    # Loop through each reference object
+                    for *ref_xyxy, _, _ in ref_dets:
+                        ref_size = (ref_xyxy[2] - ref_xyxy[0]) * (ref_xyxy[3] - ref_xyxy[1])
+                        if ref_size * coeff > det_size:
+                            apt_size = True
+                            break
+                    cond[i] = apt_size or not len(ref_dets)
+    det = det[cond]
     return det
 
 
@@ -277,6 +320,7 @@ def detect(opt):
                 det = filter_location(det, name_indices, img_size)
                 det = filter_size(det, name_indices, img_size)
                 det = filter_distance(det, name_indices)
+                det = filter_rel_size(det, name_indices)
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img_size, det[:, :4], im0.shape).round()
                 
