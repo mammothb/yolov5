@@ -139,13 +139,14 @@ def filter_distance(det, name_indices):
                         ):
                             in_proximity = True
                             break
-                    cond[i] = in_proximity or not len(ref_dets)
+                    cond[i] = (in_proximity or not len(ref_dets)) and cond[i]
     det = det[cond]
     return det
 
 
 def filter_location(det, name_indices, img_size):
     lower_y_thres = {
+        "cart": 0.5,
         "table": 0.75,
         "wheelchair": 0.5,
         "wok": 0.5,
