@@ -78,13 +78,15 @@ def box_distance(box1, box2):
 
 def filter_conf_thres(det, name_indices):
     conf_thres = {
+        "banana": 0.29,
         "box": 1.0,
         "burner": 0.3,
         "cart": 0.26,
         "gas_cylinder": 0.63,
         "orange": 0.27,
+        "table": 0.16,
         "tissue": 0.3,
-        "wheelchair": 0.3,
+        "wheelchair": 0.341,
         "wok": 0.35,
     }
     for cls, thres in conf_thres.items():
@@ -113,6 +115,9 @@ def filter_distance(det, name_indices):
         "wheelchair": {
             "tissue": 2.0
         },
+        "wok": {
+            "burner": 0.1,
+        }
     }
     # Loop through reference classes
     for ref_cls in distance_thres:
