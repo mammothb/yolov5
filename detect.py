@@ -100,18 +100,18 @@ def filter_conf_thres(det, name_indices):
 def filter_distance(det, name_indices):
     cond = [True] * len(det)
     distance_thres = {
-        # "cart": {
-        #     "gas_cylinder": 1.0,
-        #     "burner": 0.0,
-        # },
+        "cart": {
+            "gas_cylinder": 1.0,
+            "burner": 0.0,
+        },
         "table": {
             "apple": 1.0,
             "banana": 1.0,
             "orange": 1.0,
         },
-        # "wheelchair": {
-        #     "tissue": 2.0
-        # },
+        "wheelchair": {
+            "tissue": 2.0
+        },
     }
     # Loop through reference classes
     for ref_cls in distance_thres:
