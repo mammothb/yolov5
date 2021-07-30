@@ -85,9 +85,9 @@ def filter_conf_thres(det, name_indices):
         "gas_cylinder": 0.63,
         "orange": 0.27,
         "table": 0.16,
-        "tissue": 0.3,
-        "wheelchair": 0.341,
-        "wok": 0.35,
+        "tissue": 0.352,
+        "wheelchair": 0.524,
+        "wok": 0.45,
     }
     for cls, thres in conf_thres.items():
         det = det[
@@ -169,13 +169,13 @@ def filter_rel_size(det, name_indices):
         #     "gas_cylinder": 1.0,
         #     "burner": 0.0,
         # },
-        # "table": {
-        #     "apple": 1.0,
-        #     "banana": 1.0,
-        #     "orange": 1.0,
-        # },
+        "table": {
+            "apple": 0.475,
+            # "banana": 1.0,
+            # "orange": 1.0,
+        },
         "wheelchair": {
-            "tissue": 0.5
+            "tissue": 0.385
         },
     }
     # Loop through reference classes
