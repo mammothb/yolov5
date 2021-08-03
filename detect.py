@@ -79,7 +79,7 @@ def box_distance(box1, box2):
 def filter_conf_thres(det, name_indices):
     conf_thres = {
         "apple": 0.22,
-        "banana": 0.29,
+        "banana": 0.448,
         "box": 1.0,
         "burner": 0.73,
         "cart": 0.26,
@@ -166,14 +166,14 @@ def filter_location(det, name_indices, img_size):
 def filter_rel_size(det, name_indices):
     cond = [True] * len(det)
     size_thres = {
-        # "cart": {
-        #     "gas_cylinder": 1.0,
-        #     "burner": 0.0,
-        # },
+        "cart": {
+            # "gas_cylinder": 1.0,
+            "burner": 0.513,
+        },
         "table": {
             "apple": 0.475,
             "banana": 0.613,
-            # "orange": 1.0,
+            "orange": 0.265,
         },
         "wheelchair": {
             "tissue": 0.385
