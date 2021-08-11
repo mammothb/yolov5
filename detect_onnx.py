@@ -5,6 +5,7 @@ Usage:
 """
 
 import argparse
+import math
 import sys
 import time
 from pathlib import Path
@@ -23,6 +24,10 @@ from utils.general import check_img_size, check_requirements, check_imshow, colo
     apply_classifier, scale_coords, xyxy2xywh, strip_optimizer, set_logging, increment_path, save_one_box
 from utils.plots import colors, plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized
+
+
+def dist(p, q):
+    return math.sqrt(sum((px - qx)**2.0 for px, qx in zip(p, q)))
 
 
 def parse_event(unique_classes, fruit_indices, name_indices):
@@ -276,7 +281,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
             modelc = load_classifier(name='resnet50', n=2)  # initialize
             modelc.load_state_dict(torch.load('resnet50.pt', map_location=device)['model']).to(device).eval()
     elif onnx:
-        check_requirements(('onnx', 'onnxruntime'))
+        # check_requirements(('onnx', 'onnxruntime'))
         import onnxruntime
         session = onnxruntime.InferenceSession(w, None)
         names = ["apple", "banana", "orange", "wheelchair", "wok", "box", "table", "tissue", "gas_cylinder", "burner", "cart"]
