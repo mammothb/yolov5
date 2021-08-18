@@ -107,6 +107,7 @@ def filter_distance(det, name_indices):
         "cart": {
             "gas_cylinder": 1.0,
             "burner": 0.0,
+            "wok": 1.0,
         },
         "table": {
             "apple": 1.0,
