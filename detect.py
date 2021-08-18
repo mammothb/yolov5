@@ -78,14 +78,14 @@ def box_distance(box1, box2):
 
 def filter_conf_thres(det, name_indices):
     conf_thres = {
-        "apple": 0.276,
+        "apple": 0.22,
         "banana": 0.448,
         "box": 1.0,
         "burner": 0.73,
         "cart": 0.26,
         "gas_cylinder": 0.63,
         "orange": 0.27,
-        "table": 0.16,
+        "table": 0.286,
         "tissue": 0.485,
         "wheelchair": 0.715,
         "wok": 0.45,
