@@ -33,8 +33,9 @@ def parse_event(unique_classes, fruit_indices, name_indices):
         name_indices["cart"] in unique_classes
         or name_indices["wok"] in unique_classes
     ) and (
-        name_indices["gas_cylinder"] in unique_classes
-        or name_indices["burner"] in unique_classes
+        # name_indices["gas_cylinder"] in unique_classes
+        # or name_indices["burner"] in unique_classes
+        name_indices["burner"] in unique_classes
     ) or (
         name_indices["cart"] in unique_classes
         and name_indices["wok"] in unique_classes
@@ -76,6 +77,20 @@ def box_distance(box1, box2):
         return 0.0
 
 
+def is_on_top(box1, box2, tol_h, tol_w):
+    """Calculations done w.r.t. box1. Coords are (top left), (bottom right)
+    Parameter
+    ---------
+    tol_h (float): Tolerance value for box2 height
+    tol_w (float): Tolerance value for box2 width
+    """
+    return (
+        box2[3] <= box1[1] + tol_h  # bot of box2 higher than top of box1
+        and box2[0] >= box1[0] - tol_w
+        and box2[2] <= box1[2] + tol_w
+    )
+
+
 def filter_conf_thres(det, name_indices):
     conf_thres = {
         "apple": 0.22,
@@ -86,8 +101,10 @@ def filter_conf_thres(det, name_indices):
         "gas_cylinder": 0.63,
         "orange": 0.27,
         "table": 0.286,
+        # "tissue": 0.485,
+        # "wheelchair": 0.715,
         "tissue": 0.485,
-        "wheelchair": 0.715,
+        "wheelchair": 0.8,
         "wok": 0.45,
     }
     for cls, thres in conf_thres.items():
@@ -164,12 +181,55 @@ def filter_location(det, name_indices, img_size):
     return det
 
 
+def filter_overlap(det, name_indices):
+    cond = [True] * len(det)
+    distance_thres = {
+        "table": {
+            "apple": {
+                "h": 1.0,
+                "w": 0.1,
+            },
+            "banana": {
+                "h": 1.0,
+                "w": 0.05,
+            },
+            "orange": {
+                "h": 1.0,
+                "w": 0.05,
+            },
+        }
+    }
+    # Loop through reference classes
+    for ref_cls in distance_thres:
+        ref_dets = det[det[..., 5] == name_indices[ref_cls]]
+        # Loop through all detections
+        for i, (*det_xyxy, _, det_cls) in enumerate(det):
+            det_w = det_xyxy[2] - det_xyxy[0]
+            det_h = det_xyxy[3] - det_xyxy[1]
+            # Loop through each class related to the reference class
+            for cls in distance_thres[ref_cls]:
+                if det_cls == name_indices[cls]:
+                    coeff = distance_thres[ref_cls][cls]
+                    on_top = False
+                    # Loop through each reference object
+                    for *ref_xyxy, _, _ in ref_dets:
+                        if is_on_top(
+                            ref_xyxy, det_xyxy, coeff["h"] * det_h, coeff["w"] * det_w
+                        ):
+                            on_top = True
+                            break
+                    cond[i] = (on_top or not len(ref_dets)) and cond[i]
+    det = det[cond]
+    return det
+
+
 def filter_rel_size(det, name_indices):
     cond = [True] * len(det)
     size_thres = {
         "cart": {
             # "gas_cylinder": 1.0,
             "burner": 0.513,
+            "wok": 0.155,
         },
         "table": {
             "apple": 0.475,
@@ -177,7 +237,7 @@ def filter_rel_size(det, name_indices):
             "orange": 0.265,
         },
         "wheelchair": {
-            "tissue": 0.385
+            "tissue": 0.05
         },
     }
     # Loop through reference classes
@@ -329,6 +389,7 @@ def detect(opt):
                 det = filter_size(det, name_indices, img_size)
                 det = filter_distance(det, name_indices)
                 det = filter_rel_size(det, name_indices)
+                det = filter_overlap(det, name_indices)
                 # Rescale boxes from img_size to im0 size
                 det[:, :4] = scale_coords(img_size, det[:, :4], im0.shape).round()
                 
